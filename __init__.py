@@ -1,47 +1,26 @@
-import json
-from collections import defaultdict
-from cart import dao
-from products import Product, get_product
+import cart
+import products
+from cart import get_cart
+import os
 
-class Cart:
-    def _init_(self, id: int, username: str, contents: list[Product], cost: float):
-        self.id = id
-        self.username = username
-        self.contents = contents
-        self.cost = cost
+def checkout(username):
+    cart = get_cart(username)
+    total = 0
+    for item in cart:
+        total += item.cost
 
-    @staticmethod
-    def load(data):
-        return Cart(data['id'], data['username'], data['contents'], data['cost'])
+    #Here the exit can happen when a illegal memory is accessed 
+    # or when a error is not handled properly
+    #os._exit(1)
+    return total
 
-def get_cart(username: str) -> list[Product]:
-    # Retrieve cart details from the database
-    cart_details = dao.get_cart(username)
-    if not cart_details:
-        return []
 
-    # Parse and aggregate all product IDs
-    product_counts = defaultdict(int)
-    for cart_detail in cart_details:
-        for item in json.loads(cart_detail['contents']):
-            product_counts[item] += 1
+def complete_checkout(username):
+    cartv = cart.get_cart(username)
+    items = cartv
+    for item in items:
+        assert item.qty >= 1
+    for item in items:
+        cart.delete_cart(username)
+        products.update_qty(item.id, item.qty-1)
 
-    # Fetch product details for unique product IDs in bulk
-    unique_products = list(product_counts.keys())
-    products_data = {prod_id: get_product(prod_id) for prod_id in unique_products}
-
-    # Rebuild the full list of products in the order they appear in the cart
-    result = []
-    for prod_id in unique_products:
-        result.extend([products_data[prod_id]] * product_counts[prod_id])
-
-    return result
-
-def add_to_cart(username: str, product_id: int):
-    dao.add_to_cart(username, product_id)
-
-def remove_from_cart(username: str, product_id: int):
-    dao.remove_from_cart(username, product_id)
-
-def delete_cart(username: str):
-    dao.delete_cart(username)
